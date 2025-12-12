@@ -14,25 +14,52 @@ const INITIAL_DATA: NavItem[] = [
 
 const App: React.FC = () => {
   const [items, setItems] = useState<NavItem[]>(() => {
-    const saved = localStorage.getItem('nav_items');
-    return saved ? JSON.parse(saved) : INITIAL_DATA;
+    try {
+      const saved = localStorage.getItem('nav_items');
+      return saved ? JSON.parse(saved) : INITIAL_DATA;
+    } catch (e) {
+      console.error("Error loading from localStorage", e);
+      return INITIAL_DATA;
+    }
   });
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [activeUrl, setActiveUrl] = useState<string | null>(null);
+  const [editingItem, setEditingItem] = useState<NavItem | null>(null);
 
   useEffect(() => {
-    localStorage.setItem('nav_items', JSON.stringify(items));
+    try {
+      localStorage.setItem('nav_items', JSON.stringify(items));
+    } catch (e) {
+      console.error("Error saving to localStorage", e);
+    }
   }, [items]);
 
-  const handleAddItem = (url: string, title: string) => {
-    const newItem: NavItem = {
-      id: Date.now().toString(),
-      url,
-      title,
-      timestamp: Date.now(),
-    };
-    setItems(prev => [...prev, newItem]);
+  const handleSaveItem = (url: string, title: string) => {
+    if (editingItem) {
+      // Edit existing item
+      setItems(prev => prev.map(item => 
+        item.id === editingItem.id 
+          ? { ...item, url, title } // Keep original ID and other props if needed
+          : item
+      ));
+    } else {
+      // Add new item
+      const newItem: NavItem = {
+        id: Date.now().toString(),
+        url,
+        title,
+        timestamp: Date.now(),
+      };
+      setItems(prev => [...prev, newItem]);
+    }
+    setEditingItem(null);
+    setIsModalOpen(false);
+  };
+
+  const handleEditClick = (item: NavItem) => {
+    setEditingItem(item);
+    setIsModalOpen(true);
   };
 
   const handleDeleteItem = (id: string) => {
@@ -44,6 +71,11 @@ const App: React.FC = () => {
     const [draggedItem] = newItems.splice(dragIndex, 1);
     newItems.splice(hoverIndex, 0, draggedItem);
     setItems(newItems);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setEditingItem(null);
   };
 
   // Iframe Overlay View
@@ -117,8 +149,6 @@ const App: React.FC = () => {
            </div>
         </div>
 
-        {/* Action Bar / Status Strip REMOVED as requested */}
-
         {/* Grid Section */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
           {items.map((item, index) => (
@@ -127,11 +157,15 @@ const App: React.FC = () => {
               index={index}
               item={item} 
               onDelete={handleDeleteItem} 
+              onEdit={handleEditClick}
               onMove={handleMoveItem}
               onClick={setActiveUrl}
             />
           ))}
-          <AddCard onClick={() => setIsModalOpen(true)} />
+          <AddCard onClick={() => {
+            setEditingItem(null);
+            setIsModalOpen(true);
+          }} />
         </div>
       </main>
 
@@ -141,8 +175,9 @@ const App: React.FC = () => {
 
       <AddModal 
         isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
-        onSubmit={handleAddItem}
+        onClose={handleCloseModal} 
+        onSubmit={handleSaveItem}
+        initialValues={editingItem ? { title: editingItem.title, url: editingItem.url } : undefined}
       />
     </div>
   );

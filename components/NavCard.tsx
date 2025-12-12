@@ -5,11 +5,12 @@ interface NavCardProps {
   item: NavItem;
   index: number;
   onDelete: (id: string) => void;
+  onEdit: (item: NavItem) => void;
   onMove: (dragIndex: number, hoverIndex: number) => void;
   onClick: (url: string) => void;
 }
 
-const NavCard: React.FC<NavCardProps> = ({ item, index, onDelete, onMove, onClick }) => {
+const NavCard: React.FC<NavCardProps> = ({ item, index, onDelete, onEdit, onMove, onClick }) => {
   const [isHovered, setIsHovered] = useState(false);
   const [imageError, setImageError] = useState(false);
 
@@ -70,27 +71,44 @@ const NavCard: React.FC<NavCardProps> = ({ item, index, onDelete, onMove, onClic
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      {/* Delete Button (visible on hover) - Updated style */}
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          onDelete(item.id);
-        }}
-        className={`absolute top-2 right-2 z-20 w-8 h-8 flex items-center justify-center bg-white text-slate-400 rounded-full shadow-sm hover:text-red-500 hover:bg-red-50 transition-all duration-200 ${isHovered ? 'opacity-100 scale-100' : 'opacity-0 scale-90'}`}
-        aria-label="删除项目"
-        onMouseDown={(e) => e.stopPropagation()} 
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-        </svg>
-      </button>
+      {/* Action Buttons (visible on hover) */}
+      <div className={`absolute top-2 right-2 z-20 flex gap-2 transition-all duration-200 ${isHovered ? 'opacity-100 scale-100' : 'opacity-0 scale-90'}`}>
+        {/* Edit Button */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onEdit(item);
+          }}
+          className="w-8 h-8 flex items-center justify-center bg-white text-slate-400 rounded-full shadow-sm hover:text-blue-500 hover:bg-blue-50 transition-colors"
+          aria-label="编辑项目"
+          onMouseDown={(e) => e.stopPropagation()}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+          </svg>
+        </button>
+        {/* Delete Button */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete(item.id);
+          }}
+          className="w-8 h-8 flex items-center justify-center bg-white text-slate-400 rounded-full shadow-sm hover:text-red-500 hover:bg-red-50 transition-colors"
+          aria-label="删除项目"
+          onMouseDown={(e) => e.stopPropagation()} 
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
 
       {/* Clickable Area */}
       <div 
         onClick={() => onClick(item.url)}
         className="flex-1 flex flex-col w-full h-full cursor-pointer"
       >
-        {/* Top: Preview Image - Reduced height to give more focus to "Card" feel */}
+        {/* Top: Preview Image */}
         <div className="relative h-32 w-full overflow-hidden bg-white/50">
           {imageError ? (
             <div className="w-full h-full flex items-center justify-center text-slate-300">
@@ -106,14 +124,13 @@ const NavCard: React.FC<NavCardProps> = ({ item, index, onDelete, onMove, onClic
               onError={() => setImageError(true)}
             />
           )}
-          {/* Subtle overlay to blend image with card */}
+          {/* Subtle overlay */}
           <div className={`absolute inset-0 bg-gradient-to-t from-${theme.bg.replace('bg-', '')} to-transparent opacity-50`}></div>
         </div>
 
         {/* Bottom: Text Label Area */}
         <div className="flex-1 flex flex-col justify-center px-4 pb-2">
             <div className="flex items-center justify-center gap-2 mb-1">
-                 {/* Icon placeholder */}
                  <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 ${theme.icon}`} viewBox="0 0 20 20" fill="currentColor">
                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 0l-3 3a1 1 0 001.414 1.414L9 9.414V13a1 1 0 102 0V9.414l1.293 1.293a1 1 0 001.414-1.414z" clipRule="evenodd" />
                   </svg>

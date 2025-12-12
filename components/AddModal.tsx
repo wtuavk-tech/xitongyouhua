@@ -1,16 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import { ModalProps } from '../types';
 
-const AddModal: React.FC<ModalProps> = ({ isOpen, onClose, onSubmit }) => {
+interface ExtendedModalProps extends ModalProps {
+  initialValues?: { title: string; url: string };
+}
+
+const AddModal: React.FC<ExtendedModalProps> = ({ isOpen, onClose, onSubmit, initialValues }) => {
   const [url, setUrl] = useState('');
   const [title, setTitle] = useState('');
 
   useEffect(() => {
     if (isOpen) {
-      setUrl('');
-      setTitle('');
+      if (initialValues) {
+        setUrl(initialValues.url);
+        setTitle(initialValues.title);
+      } else {
+        setUrl('');
+        setTitle('');
+      }
     }
-  }, [isOpen]);
+  }, [isOpen, initialValues]);
 
   if (!isOpen) return null;
 
@@ -26,8 +35,10 @@ const AddModal: React.FC<ModalProps> = ({ isOpen, onClose, onSubmit }) => {
 
     const finalTitle = title || finalUrl;
     onSubmit(finalUrl, finalTitle);
-    onClose();
+    // Note: onClose is handled by parent after submit to ensure state consistency
   };
+
+  const isEditMode = !!initialValues;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm transition-opacity">
@@ -35,12 +46,18 @@ const AddModal: React.FC<ModalProps> = ({ isOpen, onClose, onSubmit }) => {
         {/* Modal Header */}
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-            <div className="p-2 bg-blue-50 rounded-lg text-blue-500">
-               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-               </svg>
+            <div className={`p-2 rounded-lg ${isEditMode ? 'bg-indigo-50 text-indigo-500' : 'bg-blue-50 text-blue-500'}`}>
+               {isEditMode ? (
+                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                 </svg>
+               ) : (
+                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                 </svg>
+               )}
             </div>
-            新增节点
+            {isEditMode ? '编辑节点' : '新增节点'}
           </h2>
           <button 
             onClick={onClose}
@@ -68,7 +85,7 @@ const AddModal: React.FC<ModalProps> = ({ isOpen, onClose, onSubmit }) => {
                 onChange={(e) => setUrl(e.target.value)}
                 placeholder="例如：www.baidu.com"
                 className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 pl-10 text-sm text-gray-900 focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-1 focus:ring-blue-500 transition-all placeholder-gray-400"
-                autoFocus
+                autoFocus={!isEditMode}
                 required
               />
             </div>
@@ -102,9 +119,9 @@ const AddModal: React.FC<ModalProps> = ({ isOpen, onClose, onSubmit }) => {
             </button>
             <button
               type="submit"
-              className="px-6 py-2.5 bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 shadow-lg shadow-blue-500/30 rounded-lg transition-all transform hover:scale-105 active:scale-95"
+              className={`px-6 py-2.5 text-white text-sm font-semibold shadow-lg rounded-lg transition-all transform hover:scale-105 active:scale-95 ${isEditMode ? 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-500/30' : 'bg-blue-600 hover:bg-blue-700 shadow-blue-500/30'}`}
             >
-              执行添加
+              {isEditMode ? '保存修改' : '执行添加'}
             </button>
           </div>
         </form>
