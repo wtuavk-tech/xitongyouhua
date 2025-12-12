@@ -2,49 +2,48 @@ import React, { useState, useEffect } from 'react';
 import NavCard from './components/NavCard';
 import AddCard from './components/AddCard';
 import AddModal from './components/AddModal';
+import ExportModal from './components/ExportModal';
 import { NavItem } from './types';
 
-// Initial data to populate the grid if empty
-const INITIAL_DATA: NavItem[] = [
-  { id: '1', url: 'https://github.com', title: '代码仓库中心', timestamp: Date.now() },
-  { id: '2', url: 'https://stackoverflow.com', title: '技术知识库', timestamp: Date.now() },
-  { id: '3', url: 'https://react.dev', title: 'React 核心文档', timestamp: Date.now() },
-  { id: '4', url: 'https://tailwindcss.com', title: '样式系统手册', timestamp: Date.now() },
-];
-
 const App: React.FC = () => {
-  const [items, setItems] = useState<NavItem[]>(() => {
-    try {
-      const saved = localStorage.getItem('nav_items');
-      return saved ? JSON.parse(saved) : INITIAL_DATA;
-    } catch (e) {
-      console.error("Error loading from localStorage", e);
-      return INITIAL_DATA;
-    }
-  });
+  const [items, setItems] = useState<NavItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [activeUrl, setActiveUrl] = useState<string | null>(null);
   const [editingItem, setEditingItem] = useState<NavItem | null>(null);
 
+  // Load data from JSON file on mount
   useEffect(() => {
-    try {
-      localStorage.setItem('nav_items', JSON.stringify(items));
-    } catch (e) {
-      console.error("Error saving to localStorage", e);
-    }
-  }, [items]);
+    const loadData = async () => {
+      try {
+        // Try to fetch the configuration file from the public root
+        const response = await fetch('/nav-data.json');
+        if (response.ok) {
+          const data = await response.json();
+          setItems(data);
+        } else {
+          console.error("Failed to load config, using empty state");
+          setItems([]);
+        }
+      } catch (e) {
+        console.error("Error loading nav-data.json", e);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadData();
+  }, []);
 
   const handleSaveItem = (url: string, title: string) => {
     if (editingItem) {
-      // Edit existing item
       setItems(prev => prev.map(item => 
         item.id === editingItem.id 
-          ? { ...item, url, title } // Keep original ID and other props if needed
+          ? { ...item, url, title } 
           : item
       ));
     } else {
-      // Add new item
       const newItem: NavItem = {
         id: Date.now().toString(),
         url,
@@ -82,7 +81,6 @@ const App: React.FC = () => {
   if (activeUrl) {
     return (
       <div className="fixed inset-0 z-50 bg-gray-100 flex flex-col h-screen w-screen overflow-hidden font-sans">
-        {/* Navigation Bar */}
         <div className="h-14 bg-white border-b border-gray-200 flex items-center px-6 shadow-sm shrink-0 z-50 justify-between">
           <div className="flex items-center gap-4">
             <button 
@@ -101,8 +99,6 @@ const App: React.FC = () => {
             急修到家
           </div>
         </div>
-        
-        {/* Iframe Content */}
         <div className="flex-1 relative bg-white">
            <iframe 
              src={activeUrl} 
@@ -120,9 +116,8 @@ const App: React.FC = () => {
     <div className="min-h-screen bg-dash-bg font-sans text-dash-text p-4 md:p-8">
       <main className="container mx-auto max-w-7xl space-y-8">
         
-        {/* Header Section - Compact Version */}
+        {/* Header Section */}
         <div className="relative overflow-hidden rounded-2xl bg-slate-900 text-white shadow-xl">
-           {/* Background decorative elements */}
            <div className="absolute top-0 right-0 -mt-10 -mr-10 w-64 h-64 bg-blue-600 rounded-full opacity-20 blur-3xl"></div>
            <div className="absolute bottom-0 left-0 -mb-10 -ml-10 w-64 h-64 bg-purple-600 rounded-full opacity-20 blur-3xl"></div>
            
@@ -133,6 +128,17 @@ const App: React.FC = () => {
                        <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></span>
                        重要公告
                     </div>
+                    
+                    {/* Admin Action */}
+                    <button 
+                      onClick={() => setIsExportModalOpen(true)}
+                      className="group flex items-center gap-2 px-3 py-1.5 bg-white/10 hover:bg-white/20 border border-white/10 rounded-lg text-xs font-medium transition-all hover:scale-105 active:scale-95 backdrop-blur-md"
+                    >
+                       <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-yellow-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                       <span>生成部署配置</span>
+                    </button>
                 </div>
                 
                 <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
@@ -141,7 +147,7 @@ const App: React.FC = () => {
                         急修到家系统升级优化
                         </h1>
                         <p className="text-slate-300 text-xs md:text-sm leading-relaxed max-w-4xl mt-2 opacity-80">
-                        点击下方详情以快速访问相关优化页面。所有系统节点已在后台完成同步，请根据业务需求选择对应入口...
+                        所有系统节点已在后台完成同步。编辑内容后，请点击右上角“生成部署配置”以更新线上版本。
                         </p>
                     </div>
                 </div>
@@ -150,27 +156,33 @@ const App: React.FC = () => {
         </div>
 
         {/* Grid Section */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-          {items.map((item, index) => (
-            <NavCard 
-              key={item.id} 
-              index={index}
-              item={item} 
-              onDelete={handleDeleteItem} 
-              onEdit={handleEditClick}
-              onMove={handleMoveItem}
-              onClick={setActiveUrl}
-            />
-          ))}
-          <AddCard onClick={() => {
-            setEditingItem(null);
-            setIsModalOpen(true);
-          }} />
-        </div>
+        {isLoading ? (
+          <div className="flex justify-center items-center h-64">
+             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+            {items.map((item, index) => (
+              <NavCard 
+                key={item.id} 
+                index={index}
+                item={item} 
+                onDelete={handleDeleteItem} 
+                onEdit={handleEditClick}
+                onMove={handleMoveItem}
+                onClick={setActiveUrl}
+              />
+            ))}
+            <AddCard onClick={() => {
+              setEditingItem(null);
+              setIsModalOpen(true);
+            }} />
+          </div>
+        )}
       </main>
 
       <div className="text-center py-8 text-xs text-slate-400">
-         SYS.VER.4.0.2 © 2025 急修到家技术部
+         SYS.VER.4.0.3 © 2025 急修到家技术部
       </div>
 
       <AddModal 
@@ -178,6 +190,12 @@ const App: React.FC = () => {
         onClose={handleCloseModal} 
         onSubmit={handleSaveItem}
         initialValues={editingItem ? { title: editingItem.title, url: editingItem.url } : undefined}
+      />
+
+      <ExportModal
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+        data={items}
       />
     </div>
   );
