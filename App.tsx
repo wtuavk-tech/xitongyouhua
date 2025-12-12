@@ -5,9 +5,39 @@ import AddModal from './components/AddModal';
 import ExportModal from './components/ExportModal';
 import { NavItem } from './types';
 
+// 1. HARDCODED DEFAULT DATA (The "Fixed" Version)
+// This ensures the page is NEVER blank, even if json load fails.
+const DEFAULT_DATA: NavItem[] = [
+  {
+    "id": "home-nav",
+    "url": "https://gerendaohang.pages.dev/",
+    "title": "首页导航",
+    "timestamp": 1715000000001
+  },
+  {
+    "id": "dispatcher",
+    "url": "https://paidanyuan.pages.dev/",
+    "title": "派单员页",
+    "timestamp": 1715000000002
+  },
+  {
+    "id": "3",
+    "url": "https://dingdanguanli1.pages.dev/",
+    "title": "订单管理页",
+    "timestamp": 1715000000000
+  },
+  {
+    "id": "4",
+    "url": "https://shouhouguanli.pages.dev/",
+    "title": "售后管理页",
+    "timestamp": 1715000000000
+  }
+];
+
 const App: React.FC = () => {
-  const [items, setItems] = useState<NavItem[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  // 2. Initialize with DEFAULT_DATA instead of empty array
+  const [items, setItems] = useState<NavItem[]>(DEFAULT_DATA);
+  const [isLoading, setIsLoading] = useState(true); // Still show loading spinner for external check
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
@@ -18,17 +48,21 @@ const App: React.FC = () => {
   useEffect(() => {
     const loadData = async () => {
       try {
-        // Try to fetch the configuration file from the public root
-        const response = await fetch('/nav-data.json');
+        // 3. Add timestamp to force bypass cache (?t=...)
+        const response = await fetch(`/nav-data.json?t=${Date.now()}`);
         if (response.ok) {
           const data = await response.json();
-          setItems(data);
+          // Only update if we actually got data (length > 0)
+          if (Array.isArray(data) && data.length > 0) {
+            setItems(data);
+          }
         } else {
-          console.error("Failed to load config, using empty state");
-          setItems([]);
+          console.warn("Config file not found, using default embedded data.");
+          // Do NOT set to empty array, keep DEFAULT_DATA
         }
       } catch (e) {
         console.error("Error loading nav-data.json", e);
+        // Do NOT set to empty array, keep DEFAULT_DATA
       } finally {
         setIsLoading(false);
       }
@@ -156,33 +190,28 @@ const App: React.FC = () => {
         </div>
 
         {/* Grid Section */}
-        {isLoading ? (
-          <div className="flex justify-center items-center h-64">
-             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-            {items.map((item, index) => (
-              <NavCard 
-                key={item.id} 
-                index={index}
-                item={item} 
-                onDelete={handleDeleteItem} 
-                onEdit={handleEditClick}
-                onMove={handleMoveItem}
-                onClick={setActiveUrl}
-              />
-            ))}
-            <AddCard onClick={() => {
-              setEditingItem(null);
-              setIsModalOpen(true);
-            }} />
-          </div>
-        )}
+        {/* We removed the 'isLoading' condition to always show data if available */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+          {items.map((item, index) => (
+            <NavCard 
+              key={item.id} 
+              index={index}
+              item={item} 
+              onDelete={handleDeleteItem} 
+              onEdit={handleEditClick}
+              onMove={handleMoveItem}
+              onClick={setActiveUrl}
+            />
+          ))}
+          <AddCard onClick={() => {
+            setEditingItem(null);
+            setIsModalOpen(true);
+          }} />
+        </div>
       </main>
 
       <div className="text-center py-8 text-xs text-slate-400">
-         SYS.VER.4.0.3 © 2025 急修到家技术部
+         SYS.VER.4.0.5 © 2025 急修到家技术部
       </div>
 
       <AddModal 
