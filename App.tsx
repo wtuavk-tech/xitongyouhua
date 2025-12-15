@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import NavCard from './components/NavCard';
 import AddCard from './components/AddCard';
 import AddModal from './components/AddModal';
@@ -31,13 +31,21 @@ const DEFAULT_DATA: NavItem[] = [
     "url": "https://shouhouguanli.pages.dev/",
     "title": "售后管理页",
     "timestamp": 1715000000000
+  },
+  {
+    "id": "5",
+    "url": "https://ludandating.pages.dev/",
+    "title": "录单大厅",
+    "timestamp": 1765770834252
   }
 ];
 
 const App: React.FC = () => {
-  // 2. Initialize with DEFAULT_DATA instead of empty array
+  // 2. Initialize with DEFAULT_DATA
   const [items, setItems] = useState<NavItem[]>(DEFAULT_DATA);
-  const [isLoading, setIsLoading] = useState(true); // Still show loading spinner for external check
+  // Track if user has made local changes to prevent fetch from overwriting them
+  const hasUserChanges = useRef(false);
+  const [showUnsavedBadge, setShowUnsavedBadge] = useState(false);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
@@ -52,25 +60,31 @@ const App: React.FC = () => {
         const response = await fetch(`/nav-data.json?t=${Date.now()}`);
         if (response.ok) {
           const data = await response.json();
-          // Only update if we actually got data (length > 0)
+          // Only update if we actually got data AND user hasn't started editing yet
           if (Array.isArray(data) && data.length > 0) {
-            setItems(data);
+            if (!hasUserChanges.current) {
+               setItems(data);
+            } else {
+               console.log("User has modified data, skipping remote sync to prevent overwrite.");
+            }
           }
         } else {
           console.warn("Config file not found, using default embedded data.");
-          // Do NOT set to empty array, keep DEFAULT_DATA
         }
       } catch (e) {
         console.error("Error loading nav-data.json", e);
-        // Do NOT set to empty array, keep DEFAULT_DATA
-      } finally {
-        setIsLoading(false);
       }
     };
     loadData();
   }, []);
 
+  const markAsDirty = () => {
+    hasUserChanges.current = true;
+    setShowUnsavedBadge(true);
+  };
+
   const handleSaveItem = (url: string, title: string) => {
+    markAsDirty();
     if (editingItem) {
       setItems(prev => prev.map(item => 
         item.id === editingItem.id 
@@ -96,10 +110,12 @@ const App: React.FC = () => {
   };
 
   const handleDeleteItem = (id: string) => {
+    markAsDirty();
     setItems(prev => prev.filter(item => item.id !== id));
   };
 
   const handleMoveItem = (dragIndex: number, hoverIndex: number) => {
+    markAsDirty();
     const newItems = [...items];
     const [draggedItem] = newItems.splice(dragIndex, 1);
     newItems.splice(hoverIndex, 0, draggedItem);
@@ -158,20 +174,30 @@ const App: React.FC = () => {
            <div className="relative z-10 p-6 flex flex-col md:flex-row items-center justify-between gap-4">
               <div className="space-y-2 w-full">
                 <div className="flex items-center justify-between w-full">
-                    <div className="inline-flex items-center gap-2 px-2 py-0.5 rounded-full bg-red-500/20 text-red-100 border border-red-500/30 text-[10px] font-semibold">
-                       <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></span>
-                       重要公告
+                    <div className="flex items-center gap-2">
+                      <div className="inline-flex items-center gap-2 px-2 py-0.5 rounded-full bg-red-500/20 text-red-100 border border-red-500/30 text-[10px] font-semibold">
+                        <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></span>
+                        重要公告
+                      </div>
+                      {showUnsavedBadge && (
+                        <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-yellow-500/20 text-yellow-100 border border-yellow-500/30 text-[10px] font-semibold animate-fade-in">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                          </svg>
+                          有未保存修改
+                        </div>
+                      )}
                     </div>
                     
                     {/* Admin Action */}
                     <button 
                       onClick={() => setIsExportModalOpen(true)}
-                      className="group flex items-center gap-2 px-3 py-1.5 bg-white/10 hover:bg-white/20 border border-white/10 rounded-lg text-xs font-medium transition-all hover:scale-105 active:scale-95 backdrop-blur-md"
+                      className={`group flex items-center gap-2 px-3 py-1.5 border rounded-lg text-xs font-medium transition-all hover:scale-105 active:scale-95 backdrop-blur-md ${showUnsavedBadge ? 'bg-yellow-500/20 border-yellow-400/50 text-yellow-100 animate-pulse' : 'bg-white/10 hover:bg-white/20 border-white/10 text-white'}`}
                     >
-                       <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-yellow-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                       <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 ${showUnsavedBadge ? 'text-white' : 'text-yellow-300'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
-                       <span>生成部署配置</span>
+                       <span>{showUnsavedBadge ? '点击保存配置' : '生成部署配置'}</span>
                     </button>
                 </div>
                 
@@ -190,7 +216,6 @@ const App: React.FC = () => {
         </div>
 
         {/* Grid Section */}
-        {/* We removed the 'isLoading' condition to always show data if available */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
           {items.map((item, index) => (
             <NavCard 
@@ -211,7 +236,7 @@ const App: React.FC = () => {
       </main>
 
       <div className="text-center py-8 text-xs text-slate-400">
-         SYS.VER.4.0.5 © 2025 急修到家技术部
+         SYS.VER.4.0.6 © 2025 急修到家技术部
       </div>
 
       <AddModal 
