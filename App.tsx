@@ -5,8 +5,7 @@ import AddModal from './components/AddModal';
 import ExportModal from './components/ExportModal';
 import { NavItem } from './types';
 
-// 1. HARDCODED DEFAULT DATA (The "Fixed" Version)
-// This ensures the page is NEVER blank, even if json load fails.
+// 1. 恢复默认的 5 个板块数据
 const DEFAULT_DATA: NavItem[] = [
   {
     "id": "home-nav",
@@ -41,9 +40,11 @@ const DEFAULT_DATA: NavItem[] = [
 ];
 
 const App: React.FC = () => {
-  // 2. Initialize with DEFAULT_DATA
+  // 2. 初始化时直接使用 DEFAULT_DATA，保证页面不留白，直接显示 5 个方框
   const [items, setItems] = useState<NavItem[]>(DEFAULT_DATA);
-  // Track if user has made local changes to prevent fetch from overwriting them
+  const [isLoading, setIsLoading] = useState(true);
+  
+  // 核心逻辑：记录用户是否进行了本地修改
   const hasUserChanges = useRef(false);
   const [showUnsavedBadge, setShowUnsavedBadge] = useState(false);
   
@@ -52,27 +53,28 @@ const App: React.FC = () => {
   const [activeUrl, setActiveUrl] = useState<string | null>(null);
   const [editingItem, setEditingItem] = useState<NavItem | null>(null);
 
-  // Load data from JSON file on mount
+  // 加载逻辑：尝试从 JSON 获取最新配置，但如果用户已经开始操作，则不覆盖
   useEffect(() => {
     const loadData = async () => {
       try {
-        // 3. Add timestamp to force bypass cache (?t=...)
+        // 加上时间戳，确保修改代码后预览能立即生效
         const response = await fetch(`/nav-data.json?t=${Date.now()}`);
         if (response.ok) {
           const data = await response.json();
-          // Only update if we actually got data AND user hasn't started editing yet
           if (Array.isArray(data) && data.length > 0) {
+            // 只有当用户没有进行任何操作时，才同步后台数据
+            // 这样既保证了代码修改能生效，又保证了用户新增的内容不会被自动撤销
             if (!hasUserChanges.current) {
                setItems(data);
             } else {
-               console.log("User has modified data, skipping remote sync to prevent overwrite.");
+               console.log("用户正在编辑，跳过后台数据同步，防止内容丢失");
             }
           }
-        } else {
-          console.warn("Config file not found, using default embedded data.");
         }
       } catch (e) {
-        console.error("Error loading nav-data.json", e);
+        console.error("加载配置文件失败，维持默认显示", e);
+      } finally {
+        setIsLoading(false);
       }
     };
     loadData();
@@ -84,7 +86,9 @@ const App: React.FC = () => {
   };
 
   const handleSaveItem = (url: string, title: string) => {
+    // 标记为已修改，锁定状态，防止被后台数据刷新覆盖
     markAsDirty();
+    
     if (editingItem) {
       setItems(prev => prev.map(item => 
         item.id === editingItem.id 
@@ -127,7 +131,7 @@ const App: React.FC = () => {
     setEditingItem(null);
   };
 
-  // Iframe Overlay View
+  // Iframe 预览视图
   if (activeUrl) {
     return (
       <div className="fixed inset-0 z-50 bg-gray-100 flex flex-col h-screen w-screen overflow-hidden font-sans">
@@ -161,7 +165,7 @@ const App: React.FC = () => {
     );
   }
 
-  // Dashboard View
+  // 主界面
   return (
     <div className="min-h-screen bg-dash-bg font-sans text-dash-text p-4 md:p-8">
       <main className="container mx-auto max-w-7xl space-y-8">
@@ -236,7 +240,7 @@ const App: React.FC = () => {
       </main>
 
       <div className="text-center py-8 text-xs text-slate-400">
-         SYS.VER.4.0.6 © 2025 急修到家技术部
+         SYS.VER.4.0.8 © 2025 急修到家技术部
       </div>
 
       <AddModal 
