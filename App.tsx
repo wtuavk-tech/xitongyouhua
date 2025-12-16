@@ -8,9 +8,49 @@ import { NavItem } from './types';
 // 本地存储的 Key
 const STORAGE_KEY = 'sys_upgrade_nav_data_v1';
 
+// 用户指定的固定数据 - 共6个板块
+const DEFAULT_DATA: NavItem[] = [
+  {
+    "id": "home-nav",
+    "url": "https://gerendaohang.pages.dev/",
+    "title": "首页导航",
+    "timestamp": 1715000000001
+  },
+  {
+    "id": "dispatcher",
+    "url": "https://paidanyuan.pages.dev/",
+    "title": "派单员页",
+    "timestamp": 1715000000002
+  },
+  {
+    "id": "3",
+    "url": "https://dingdanguanli1.pages.dev/",
+    "title": "订单管理页",
+    "timestamp": 1715000000000
+  },
+  {
+    "id": "4",
+    "url": "https://shouhouguanli.pages.dev/",
+    "title": "售后管理页",
+    "timestamp": 1715000000000
+  },
+  {
+    "id": "5",
+    "url": "https://ludandating.pages.dev/",
+    "title": "录单大厅",
+    "timestamp": 1765770834252
+  },
+  {
+    "id": "1765846048371",
+    "url": "https://danku-59j.pages.dev/",
+    "title": "单库页",
+    "timestamp": 1765846048371
+  }
+];
+
 const App: React.FC = () => {
   // 1. 初始化状态：优先尝试从本地存储读取
-  // 移除硬编码的 DEFAULT_DATA，确保页面内容完全由 nav-data.json 或用户本地缓存决定
+  // 如果没有本地缓存，直接使用 DEFAULT_DATA (代码中固定的6个板块)
   const [items, setItems] = useState<NavItem[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
@@ -20,10 +60,10 @@ const App: React.FC = () => {
     } catch (e) {
       console.error("读取本地缓存失败", e);
     }
-    return []; // 默认为空，等待 fetch 加载
+    return DEFAULT_DATA; 
   });
 
-  const [isLoading, setIsLoading] = useState(items.length === 0);
+  const [isLoading, setIsLoading] = useState(false);
   
   // 检查是否有本地缓存
   const hasLocalData = !!localStorage.getItem(STORAGE_KEY);
@@ -43,7 +83,7 @@ const App: React.FC = () => {
       const response = await fetch(`/nav-data.json?t=${Date.now()}`);
       if (response.ok) {
         const data = await response.json();
-        if (Array.isArray(data)) {
+        if (Array.isArray(data) && data.length > 0) {
           return data;
         }
       }
@@ -60,12 +100,12 @@ const App: React.FC = () => {
     const initData = async () => {
       // 如果本地有缓存，优先使用缓存（防止刷新丢失新增内容）
       if (localStorage.getItem(STORAGE_KEY)) {
-        setIsLoading(false);
         console.log("检测到本地修改，保留用户数据");
         return;
       }
 
-      // 否则从服务器加载
+      // 如果没有本地缓存，尝试从服务器更新（虽然DEFAULT_DATA已经有数据了，但保持同步是个好习惯）
+      // 这里如果服务器fetch失败，页面依然会显示 DEFAULT_DATA
       const serverData = await fetchServerData();
       if (serverData) {
         setItems(serverData);
@@ -84,15 +124,17 @@ const App: React.FC = () => {
 
   // 强制重置为服务器版本（解决“更新了GitHub但本地还是旧版”的问题）
   const handleResetToServer = async () => {
-    if (window.confirm('确定要丢弃本地修改并从服务器加载最新配置吗？')) {
+    if (window.confirm('确定要丢弃本地修改并恢复默认配置吗？')) {
       localStorage.removeItem(STORAGE_KEY);
       hasUserChanges.current = false;
       setShowUnsavedBadge(false);
+      
       const serverData = await fetchServerData();
       if (serverData) {
         setItems(serverData);
       } else {
-        alert('无法连接到服务器配置，请检查网络');
+        // 如果 fetch 失败，回退到代码里的默认数据
+        setItems(DEFAULT_DATA);
       }
     }
   };
@@ -241,7 +283,7 @@ const App: React.FC = () => {
            </div>
         </div>
 
-        {/* Loading State */}
+        {/* Loading State - only show if items are empty, which is unlikely now */}
         {isLoading && items.length === 0 && (
            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 animate-pulse">
               {[1,2,3,4,5].map(i => (
@@ -251,7 +293,7 @@ const App: React.FC = () => {
         )}
 
         {/* Grid Section */}
-        {!isLoading && (
+        {items.length > 0 && (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
             {items.map((item, index) => (
               <NavCard 
@@ -273,7 +315,7 @@ const App: React.FC = () => {
       </main>
 
       <div className="text-center py-8 text-xs text-slate-400">
-         SYS.VER.4.1.0 © 2025 急修到家技术部
+         SYS.VER.4.1.1 © 2025 急修到家技术部
       </div>
 
       <AddModal 
