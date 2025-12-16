@@ -5,6 +5,9 @@ import AddModal from './components/AddModal';
 import ExportModal from './components/ExportModal';
 import { NavItem } from './types';
 
+// 本地存储的 Key
+const STORAGE_KEY = 'sys_upgrade_nav_data_v1';
+
 // 1. 恢复默认的 5 个板块数据
 const DEFAULT_DATA: NavItem[] = [
   {
@@ -40,39 +43,52 @@ const DEFAULT_DATA: NavItem[] = [
 ];
 
 const App: React.FC = () => {
-  // 2. 初始化时直接使用 DEFAULT_DATA，保证页面不留白，直接显示 5 个方框
-  const [items, setItems] = useState<NavItem[]>(DEFAULT_DATA);
+  // 2. 初始化状态：优先尝试从本地存储读取，如果没有则使用 DEFAULT_DATA
+  const [items, setItems] = useState<NavItem[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        return JSON.parse(saved);
+      }
+    } catch (e) {
+      console.error("读取本地缓存失败", e);
+    }
+    return DEFAULT_DATA;
+  });
+
   const [isLoading, setIsLoading] = useState(true);
   
-  // 核心逻辑：记录用户是否进行了本地修改
-  const hasUserChanges = useRef(false);
-  const [showUnsavedBadge, setShowUnsavedBadge] = useState(false);
+  // 检查是否有本地缓存，如果有，说明用户有未保存的修改
+  const hasLocalData = !!localStorage.getItem(STORAGE_KEY);
+  const hasUserChanges = useRef(hasLocalData);
+  const [showUnsavedBadge, setShowUnsavedBadge] = useState(hasLocalData);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [activeUrl, setActiveUrl] = useState<string | null>(null);
   const [editingItem, setEditingItem] = useState<NavItem | null>(null);
 
-  // 加载逻辑：尝试从 JSON 获取最新配置，但如果用户已经开始操作，则不覆盖
+  // 加载逻辑
   useEffect(() => {
     const loadData = async () => {
+      // 关键修改：如果本地存储有数据（用户之前加过内容），则完全跳过后台加载
+      // 这样刷新页面后，用户看到的是自己刚才编辑的版本，而不是被服务器覆盖的版本
+      if (localStorage.getItem(STORAGE_KEY)) {
+        setIsLoading(false);
+        console.log("检测到本地修改，跳过服务器同步，保留用户数据");
+        return;
+      }
+
       try {
-        // 加上时间戳，确保修改代码后预览能立即生效
         const response = await fetch(`/nav-data.json?t=${Date.now()}`);
         if (response.ok) {
           const data = await response.json();
           if (Array.isArray(data) && data.length > 0) {
-            // 只有当用户没有进行任何操作时，才同步后台数据
-            // 这样既保证了代码修改能生效，又保证了用户新增的内容不会被自动撤销
-            if (!hasUserChanges.current) {
-               setItems(data);
-            } else {
-               console.log("用户正在编辑，跳过后台数据同步，防止内容丢失");
-            }
+             setItems(data);
           }
         }
       } catch (e) {
-        console.error("加载配置文件失败，维持默认显示", e);
+        console.error("加载配置失败", e);
       } finally {
         setIsLoading(false);
       }
@@ -80,21 +96,20 @@ const App: React.FC = () => {
     loadData();
   }, []);
 
-  const markAsDirty = () => {
+  // 统一的数据保存方法：更新状态 + 写入本地存储
+  const persistChanges = (newItems: NavItem[]) => {
+    setItems(newItems);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(newItems));
     hasUserChanges.current = true;
     setShowUnsavedBadge(true);
   };
 
   const handleSaveItem = (url: string, title: string) => {
-    // 标记为已修改，锁定状态，防止被后台数据刷新覆盖
-    markAsDirty();
-    
+    let newItems;
     if (editingItem) {
-      setItems(prev => prev.map(item => 
-        item.id === editingItem.id 
-          ? { ...item, url, title } 
-          : item
-      ));
+      newItems = items.map(item => 
+        item.id === editingItem.id ? { ...item, url, title } : item
+      );
     } else {
       const newItem: NavItem = {
         id: Date.now().toString(),
@@ -102,28 +117,29 @@ const App: React.FC = () => {
         title,
         timestamp: Date.now(),
       };
-      setItems(prev => [...prev, newItem]);
+      newItems = [...items, newItem];
     }
+    // 保存并持久化
+    persistChanges(newItems);
     setEditingItem(null);
     setIsModalOpen(false);
+  };
+
+  const handleDeleteItem = (id: string) => {
+    const newItems = items.filter(item => item.id !== id);
+    persistChanges(newItems);
+  };
+
+  const handleMoveItem = (dragIndex: number, hoverIndex: number) => {
+    const newItems = [...items];
+    const [draggedItem] = newItems.splice(dragIndex, 1);
+    newItems.splice(hoverIndex, 0, draggedItem);
+    persistChanges(newItems);
   };
 
   const handleEditClick = (item: NavItem) => {
     setEditingItem(item);
     setIsModalOpen(true);
-  };
-
-  const handleDeleteItem = (id: string) => {
-    markAsDirty();
-    setItems(prev => prev.filter(item => item.id !== id));
-  };
-
-  const handleMoveItem = (dragIndex: number, hoverIndex: number) => {
-    markAsDirty();
-    const newItems = [...items];
-    const [draggedItem] = newItems.splice(dragIndex, 1);
-    newItems.splice(hoverIndex, 0, draggedItem);
-    setItems(newItems);
   };
 
   const handleCloseModal = () => {
@@ -240,7 +256,7 @@ const App: React.FC = () => {
       </main>
 
       <div className="text-center py-8 text-xs text-slate-400">
-         SYS.VER.4.0.8 © 2025 急修到家技术部
+         SYS.VER.4.0.9 © 2025 急修到家技术部
       </div>
 
       <AddModal 
