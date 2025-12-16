@@ -8,42 +8,9 @@ import { NavItem } from './types';
 // 本地存储的 Key
 const STORAGE_KEY = 'sys_upgrade_nav_data_v1';
 
-// 1. 恢复默认的 5 个板块数据
-const DEFAULT_DATA: NavItem[] = [
-  {
-    "id": "home-nav",
-    "url": "https://gerendaohang.pages.dev/",
-    "title": "首页导航",
-    "timestamp": 1715000000001
-  },
-  {
-    "id": "dispatcher",
-    "url": "https://paidanyuan.pages.dev/",
-    "title": "派单员页",
-    "timestamp": 1715000000002
-  },
-  {
-    "id": "3",
-    "url": "https://dingdanguanli1.pages.dev/",
-    "title": "订单管理页",
-    "timestamp": 1715000000000
-  },
-  {
-    "id": "4",
-    "url": "https://shouhouguanli.pages.dev/",
-    "title": "售后管理页",
-    "timestamp": 1715000000000
-  },
-  {
-    "id": "5",
-    "url": "https://ludandating.pages.dev/",
-    "title": "录单大厅",
-    "timestamp": 1765770834252
-  }
-];
-
 const App: React.FC = () => {
-  // 2. 初始化状态：优先尝试从本地存储读取，如果没有则使用 DEFAULT_DATA
+  // 1. 初始化状态：优先尝试从本地存储读取
+  // 移除硬编码的 DEFAULT_DATA，确保页面内容完全由 nav-data.json 或用户本地缓存决定
   const [items, setItems] = useState<NavItem[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
@@ -53,12 +20,12 @@ const App: React.FC = () => {
     } catch (e) {
       console.error("读取本地缓存失败", e);
     }
-    return DEFAULT_DATA;
+    return []; // 默认为空，等待 fetch 加载
   });
 
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(items.length === 0);
   
-  // 检查是否有本地缓存，如果有，说明用户有未保存的修改
+  // 检查是否有本地缓存
   const hasLocalData = !!localStorage.getItem(STORAGE_KEY);
   const hasUserChanges = useRef(hasLocalData);
   const [showUnsavedBadge, setShowUnsavedBadge] = useState(hasLocalData);
@@ -68,32 +35,43 @@ const App: React.FC = () => {
   const [activeUrl, setActiveUrl] = useState<string | null>(null);
   const [editingItem, setEditingItem] = useState<NavItem | null>(null);
 
-  // 加载逻辑
+  // 加载数据的方法
+  const fetchServerData = async () => {
+    try {
+      setIsLoading(true);
+      // 添加时间戳防止缓存
+      const response = await fetch(`/nav-data.json?t=${Date.now()}`);
+      if (response.ok) {
+        const data = await response.json();
+        if (Array.isArray(data)) {
+          return data;
+        }
+      }
+    } catch (e) {
+      console.error("加载配置失败", e);
+    } finally {
+      setIsLoading(false);
+    }
+    return null;
+  };
+
+  // 首次加载逻辑
   useEffect(() => {
-    const loadData = async () => {
-      // 关键修改：如果本地存储有数据（用户之前加过内容），则完全跳过后台加载
-      // 这样刷新页面后，用户看到的是自己刚才编辑的版本，而不是被服务器覆盖的版本
+    const initData = async () => {
+      // 如果本地有缓存，优先使用缓存（防止刷新丢失新增内容）
       if (localStorage.getItem(STORAGE_KEY)) {
         setIsLoading(false);
-        console.log("检测到本地修改，跳过服务器同步，保留用户数据");
+        console.log("检测到本地修改，保留用户数据");
         return;
       }
 
-      try {
-        const response = await fetch(`/nav-data.json?t=${Date.now()}`);
-        if (response.ok) {
-          const data = await response.json();
-          if (Array.isArray(data) && data.length > 0) {
-             setItems(data);
-          }
-        }
-      } catch (e) {
-        console.error("加载配置失败", e);
-      } finally {
-        setIsLoading(false);
+      // 否则从服务器加载
+      const serverData = await fetchServerData();
+      if (serverData) {
+        setItems(serverData);
       }
     };
-    loadData();
+    initData();
   }, []);
 
   // 统一的数据保存方法：更新状态 + 写入本地存储
@@ -102,6 +80,21 @@ const App: React.FC = () => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(newItems));
     hasUserChanges.current = true;
     setShowUnsavedBadge(true);
+  };
+
+  // 强制重置为服务器版本（解决“更新了GitHub但本地还是旧版”的问题）
+  const handleResetToServer = async () => {
+    if (window.confirm('确定要丢弃本地修改并从服务器加载最新配置吗？')) {
+      localStorage.removeItem(STORAGE_KEY);
+      hasUserChanges.current = false;
+      setShowUnsavedBadge(false);
+      const serverData = await fetchServerData();
+      if (serverData) {
+        setItems(serverData);
+      } else {
+        alert('无法连接到服务器配置，请检查网络');
+      }
+    }
   };
 
   const handleSaveItem = (url: string, title: string) => {
@@ -119,7 +112,6 @@ const App: React.FC = () => {
       };
       newItems = [...items, newItem];
     }
-    // 保存并持久化
     persistChanges(newItems);
     setEditingItem(null);
     setIsModalOpen(false);
@@ -209,16 +201,30 @@ const App: React.FC = () => {
                       )}
                     </div>
                     
-                    {/* Admin Action */}
-                    <button 
-                      onClick={() => setIsExportModalOpen(true)}
-                      className={`group flex items-center gap-2 px-3 py-1.5 border rounded-lg text-xs font-medium transition-all hover:scale-105 active:scale-95 backdrop-blur-md ${showUnsavedBadge ? 'bg-yellow-500/20 border-yellow-400/50 text-yellow-100 animate-pulse' : 'bg-white/10 hover:bg-white/20 border-white/10 text-white'}`}
-                    >
-                       <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 ${showUnsavedBadge ? 'text-white' : 'text-yellow-300'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
-                       <span>{showUnsavedBadge ? '点击保存配置' : '生成部署配置'}</span>
-                    </button>
+                    <div className="flex gap-2">
+                       {/* Reset Button */}
+                       <button 
+                        onClick={handleResetToServer}
+                        className="flex items-center gap-2 px-3 py-1.5 border border-slate-600 bg-slate-800/50 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-medium transition-all"
+                        title="放弃本地修改，重新加载服务器配置"
+                      >
+                         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                          </svg>
+                         <span className="hidden sm:inline">重置/刷新</span>
+                      </button>
+
+                      {/* Export Button */}
+                      <button 
+                        onClick={() => setIsExportModalOpen(true)}
+                        className={`group flex items-center gap-2 px-3 py-1.5 border rounded-lg text-xs font-medium transition-all hover:scale-105 active:scale-95 backdrop-blur-md ${showUnsavedBadge ? 'bg-yellow-500/20 border-yellow-400/50 text-yellow-100 animate-pulse' : 'bg-white/10 hover:bg-white/20 border-white/10 text-white'}`}
+                      >
+                         <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 ${showUnsavedBadge ? 'text-white' : 'text-yellow-300'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                         <span>{showUnsavedBadge ? '点击保存配置' : '生成部署配置'}</span>
+                      </button>
+                    </div>
                 </div>
                 
                 <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
@@ -235,28 +241,39 @@ const App: React.FC = () => {
            </div>
         </div>
 
+        {/* Loading State */}
+        {isLoading && items.length === 0 && (
+           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 animate-pulse">
+              {[1,2,3,4,5].map(i => (
+                <div key={i} className="h-48 rounded-2xl bg-slate-200"></div>
+              ))}
+           </div>
+        )}
+
         {/* Grid Section */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-          {items.map((item, index) => (
-            <NavCard 
-              key={item.id} 
-              index={index}
-              item={item} 
-              onDelete={handleDeleteItem} 
-              onEdit={handleEditClick}
-              onMove={handleMoveItem}
-              onClick={setActiveUrl}
-            />
-          ))}
-          <AddCard onClick={() => {
-            setEditingItem(null);
-            setIsModalOpen(true);
-          }} />
-        </div>
+        {!isLoading && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+            {items.map((item, index) => (
+              <NavCard 
+                key={item.id} 
+                index={index}
+                item={item} 
+                onDelete={handleDeleteItem} 
+                onEdit={handleEditClick}
+                onMove={handleMoveItem}
+                onClick={setActiveUrl}
+              />
+            ))}
+            <AddCard onClick={() => {
+              setEditingItem(null);
+              setIsModalOpen(true);
+            }} />
+          </div>
+        )}
       </main>
 
       <div className="text-center py-8 text-xs text-slate-400">
-         SYS.VER.4.0.9 © 2025 急修到家技术部
+         SYS.VER.4.1.0 © 2025 急修到家技术部
       </div>
 
       <AddModal 
