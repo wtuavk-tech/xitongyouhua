@@ -8,7 +8,7 @@ import { NavItem } from './types';
 // 本地存储的 Key
 const STORAGE_KEY = 'sys_upgrade_nav_data_v1';
 
-// 用户指定的固定数据 - 共21个板块
+// 用户指定的固定数据 - 共22个板块
 const DEFAULT_DATA: NavItem[] = [
   {
     "id": "home-nav",
@@ -135,12 +135,18 @@ const DEFAULT_DATA: NavItem[] = [
     "url": "https://ludanjiage.pages.dev/",
     "title": "录单价格页",
     "timestamp": 1765941888712
+  },
+  {
+    "id": "1765943337256",
+    "url": "https://yonghuheimingdan.pages.dev/",
+    "title": "用户黑名单",
+    "timestamp": 1765943337256
   }
 ];
 
 const App: React.FC = () => {
   // 1. 初始化状态：优先尝试从本地存储读取
-  // 如果没有本地缓存，直接使用 DEFAULT_DATA (代码中固定的21个板块)
+  // 如果没有本地缓存，直接使用 DEFAULT_DATA (代码中固定的22个板块)
   const [items, setItems] = useState<NavItem[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
@@ -405,7 +411,7 @@ const App: React.FC = () => {
       </main>
 
       <div className="text-center py-8 text-xs text-slate-400">
-         SYS.VER.4.1.7 © 2025 急修到家技术部
+         SYS.VER.4.1.8 © 2025 急修到家技术部
       </div>
 
       <AddModal 
