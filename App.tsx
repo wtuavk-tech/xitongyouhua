@@ -8,7 +8,7 @@ import { NavItem } from './types';
 // 本地存储的 Key
 const STORAGE_KEY = 'sys_upgrade_nav_data_v1';
 
-// 用户指定的固定数据 - 共10个板块
+// 用户指定的固定数据 - 共14个板块
 const DEFAULT_DATA: NavItem[] = [
   {
     "id": "home-nav",
@@ -23,12 +23,6 @@ const DEFAULT_DATA: NavItem[] = [
     "timestamp": 1715000000002
   },
   {
-    "id": "3",
-    "url": "https://dingdanguanli1.pages.dev/",
-    "title": "订单管理页",
-    "timestamp": 1715000000000
-  },
-  {
     "id": "4",
     "url": "https://shouhouguanli.pages.dev/",
     "title": "售后管理页",
@@ -39,6 +33,18 @@ const DEFAULT_DATA: NavItem[] = [
     "url": "https://ludandating.pages.dev/",
     "title": "录单大厅",
     "timestamp": 1765770834252
+  },
+  {
+    "id": "1765869420209",
+    "url": "https://wangongshenhe.pages.dev/",
+    "title": "完工审核页",
+    "timestamp": 1765869420209
+  },
+  {
+    "id": "3",
+    "url": "https://dingdanguanli1.pages.dev/",
+    "title": "订单管理页",
+    "timestamp": 1715000000000
   },
   {
     "id": "1765846048371",
@@ -59,22 +65,40 @@ const DEFAULT_DATA: NavItem[] = [
     "timestamp": 1765865340448
   },
   {
-    "id": "1765869420209",
-    "url": "https://wangongshenhe.pages.dev/",
-    "title": "完工审核页",
-    "timestamp": 1765869420209
-  },
-  {
     "id": "1765877066685",
     "url": "https://shifuheimindan.pages.dev/",
     "title": "师傅黑名单页",
     "timestamp": 1765877066685
+  },
+  {
+    "id": "1765938309622",
+    "url": "https://dingdanshouku.pages.dev/",
+    "title": "订单收款页",
+    "timestamp": 1765938309622
+  },
+  {
+    "id": "1765938335682",
+    "url": "https://baocuodingdan.pages.dev/",
+    "title": "报错订单页",
+    "timestamp": 1765938335682
+  },
+  {
+    "id": "1765938358648",
+    "url": "https://zhipaidingdan1.pages.dev/",
+    "title": "直派订单页",
+    "timestamp": 1765938358648
+  },
+  {
+    "id": "1765938389055",
+    "url": "https://paidanyeji.pages.dev/",
+    "title": "派单业绩",
+    "timestamp": 1765938389055
   }
 ];
 
 const App: React.FC = () => {
   // 1. 初始化状态：优先尝试从本地存储读取
-  // 如果没有本地缓存，直接使用 DEFAULT_DATA (代码中固定的10个板块)
+  // 如果没有本地缓存，直接使用 DEFAULT_DATA (代码中固定的14个板块)
   const [items, setItems] = useState<NavItem[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
@@ -339,7 +363,7 @@ const App: React.FC = () => {
       </main>
 
       <div className="text-center py-8 text-xs text-slate-400">
-         SYS.VER.4.1.5 © 2025 急修到家技术部
+         SYS.VER.4.1.6 © 2025 急修到家技术部
       </div>
 
       <AddModal 
