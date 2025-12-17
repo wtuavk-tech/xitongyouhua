@@ -1,6 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import NavCard from './components/NavCard';
-import AddCard from './components/AddCard';
 import AddModal from './components/AddModal';
 import ExportModal from './components/ExportModal';
 import { NavItem } from './types';
@@ -8,7 +6,7 @@ import { NavItem } from './types';
 // 本地存储的 Key
 const STORAGE_KEY = 'sys_upgrade_nav_data_v1';
 
-// 用户指定的固定数据 - 共22个板块
+// 用户指定的固定数据
 const DEFAULT_DATA: NavItem[] = [
   {
     "id": "home-nav",
@@ -141,12 +139,17 @@ const DEFAULT_DATA: NavItem[] = [
     "url": "https://yonghuheimingdan.pages.dev/",
     "title": "用户黑名单",
     "timestamp": 1765943337256
+  },
+  {
+    "id": "1765950001916",
+    "url": "https://baojiaye.pages.dev/",
+    "title": "报价页",
+    "timestamp": 1765950001916
   }
 ];
 
 const App: React.FC = () => {
   // 1. 初始化状态：优先尝试从本地存储读取
-  // 如果没有本地缓存，直接使用 DEFAULT_DATA (代码中固定的22个板块)
   const [items, setItems] = useState<NavItem[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
@@ -159,16 +162,27 @@ const App: React.FC = () => {
     return DEFAULT_DATA; 
   });
 
+  // 默认激活第一个链接
+  const [activeUrl, setActiveUrl] = useState<string | null>(() => {
+    if (items && items.length > 0) return items[0].url;
+    return null;
+  });
+
+  // 监听 items 变化，如果 activeUrl 为空则自动设置第一个
+  useEffect(() => {
+    if (!activeUrl && items.length > 0) {
+      setActiveUrl(items[0].url);
+    }
+  }, [items]);
+
   const [isLoading, setIsLoading] = useState(false);
   
   // 检查是否有本地缓存
   const hasLocalData = !!localStorage.getItem(STORAGE_KEY);
   const hasUserChanges = useRef(hasLocalData);
-  const [showUnsavedBadge, setShowUnsavedBadge] = useState(hasLocalData);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
-  const [activeUrl, setActiveUrl] = useState<string | null>(null);
   const [editingItem, setEditingItem] = useState<NavItem | null>(null);
 
   // 加载数据的方法
@@ -194,14 +208,10 @@ const App: React.FC = () => {
   // 首次加载逻辑
   useEffect(() => {
     const initData = async () => {
-      // 如果本地有缓存，优先使用缓存（防止刷新丢失新增内容）
+      // 如果本地有缓存，优先使用缓存
       if (localStorage.getItem(STORAGE_KEY)) {
-        console.log("检测到本地修改，保留用户数据");
         return;
       }
-
-      // 如果没有本地缓存，尝试从服务器更新（虽然DEFAULT_DATA已经有数据了，但保持同步是个好习惯）
-      // 这里如果服务器fetch失败，页面依然会显示 DEFAULT_DATA
       const serverData = await fetchServerData();
       if (serverData) {
         setItems(serverData);
@@ -210,26 +220,23 @@ const App: React.FC = () => {
     initData();
   }, []);
 
-  // 统一的数据保存方法：更新状态 + 写入本地存储
+  // 统一的数据保存方法
   const persistChanges = (newItems: NavItem[]) => {
     setItems(newItems);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(newItems));
     hasUserChanges.current = true;
-    setShowUnsavedBadge(true);
   };
 
-  // 强制重置为服务器版本（解决“更新了GitHub但本地还是旧版”的问题）
+  // 强制重置为服务器版本
   const handleResetToServer = async () => {
     if (window.confirm('确定要丢弃本地修改并恢复默认配置吗？')) {
       localStorage.removeItem(STORAGE_KEY);
       hasUserChanges.current = false;
-      setShowUnsavedBadge(false);
       
       const serverData = await fetchServerData();
       if (serverData) {
         setItems(serverData);
       } else {
-        // 如果 fetch 失败，回退到代码里的默认数据
         setItems(DEFAULT_DATA);
       }
     }
@@ -258,13 +265,11 @@ const App: React.FC = () => {
   const handleDeleteItem = (id: string) => {
     const newItems = items.filter(item => item.id !== id);
     persistChanges(newItems);
-  };
-
-  const handleMoveItem = (dragIndex: number, hoverIndex: number) => {
-    const newItems = [...items];
-    const [draggedItem] = newItems.splice(dragIndex, 1);
-    newItems.splice(hoverIndex, 0, draggedItem);
-    persistChanges(newItems);
+    // 如果删除的是当前选中的项，重置 activeUrl
+    if (items.find(i => i.id === id)?.url === activeUrl) {
+      if (newItems.length > 0) setActiveUrl(newItems[0].url);
+      else setActiveUrl(null);
+    }
   };
 
   const handleEditClick = (item: NavItem) => {
@@ -277,155 +282,136 @@ const App: React.FC = () => {
     setEditingItem(null);
   };
 
-  // Iframe 预览视图
-  if (activeUrl) {
-    return (
-      <div className="fixed inset-0 z-50 bg-gray-100 flex flex-col h-screen w-screen overflow-hidden font-sans">
-        <div className="h-14 bg-white border-b border-gray-200 flex items-center px-6 shadow-sm shrink-0 z-50 justify-between">
-          <div className="flex items-center gap-4">
-            <button 
-              onClick={() => setActiveUrl(null)}
-              className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors text-sm font-medium"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-              </svg>
-              <span>返回导航</span>
-            </button>
-            <div className="h-6 w-px bg-gray-300 mx-2"></div>
-            <span className="text-gray-500 text-sm truncate max-w-xl">{activeUrl}</span>
-          </div>
-          <div className="text-sm font-bold text-slate-800">
-            急修到家
-          </div>
-        </div>
-        <div className="flex-1 relative bg-white">
-           <iframe 
-             src={activeUrl} 
-             className="absolute inset-0 w-full h-full border-none"
-             title="Preview Content"
-             sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-popups-to-escape-sandbox allow-presentation"
-           />
-        </div>
-      </div>
-    );
-  }
-
-  // 主界面
+  // 布局结构：
+  // 1. Header (h-10)
+  // 2. Body (Flex Row)
+  //    2.1 Sidebar (w-28, reduced from w-32)
+  //    2.2 Content (Iframe)
   return (
-    <div className="min-h-screen bg-dash-bg font-sans text-dash-text p-4 md:p-8">
-      <main className="container mx-auto max-w-7xl space-y-8">
-        
-        {/* Header Section */}
-        <div className="relative overflow-hidden rounded-2xl bg-slate-900 text-white shadow-xl">
-           <div className="absolute top-0 right-0 -mt-10 -mr-10 w-64 h-64 bg-blue-600 rounded-full opacity-20 blur-3xl"></div>
-           <div className="absolute bottom-0 left-0 -mb-10 -ml-10 w-64 h-64 bg-purple-600 rounded-full opacity-20 blur-3xl"></div>
-           
-           <div className="relative z-10 p-6 flex flex-col md:flex-row items-center justify-between gap-4">
-              <div className="space-y-2 w-full">
-                <div className="flex items-center justify-between w-full">
-                    <div className="flex items-center gap-2">
-                      <div className="inline-flex items-center gap-2 px-2 py-0.5 rounded-full bg-red-500/20 text-red-100 border border-red-500/30 text-[10px] font-semibold">
-                        <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></span>
-                        重要公告
-                      </div>
-                      {showUnsavedBadge && (
-                        <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-yellow-500/20 text-yellow-100 border border-yellow-500/30 text-[10px] font-semibold animate-fade-in">
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                          </svg>
-                          有未保存修改
-                        </div>
-                      )}
-                    </div>
-                    
-                    <div className="flex gap-2">
-                       {/* Reset Button */}
-                       <button 
-                        onClick={handleResetToServer}
-                        className="flex items-center gap-2 px-3 py-1.5 border border-slate-600 bg-slate-800/50 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-medium transition-all"
-                        title="放弃本地修改，重新加载服务器配置"
-                      >
-                         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                          </svg>
-                         <span className="hidden sm:inline">重置/刷新</span>
-                      </button>
+    <div className="flex flex-col h-screen w-full overflow-hidden bg-slate-100 font-sans">
+        {/* 1. Header Section */}
+        <header className="flex items-center justify-between px-4 bg-slate-900 text-white shrink-0 h-10 shadow-md z-30">
+            {/* Title */}
+            <div className="font-bold text-sm tracking-wide truncate">
+                急修到家系统升级优化
+            </div>
+            
+            {/* Right Side Buttons */}
+            <div className="flex items-center gap-2">
+                 <button 
+                    onClick={handleResetToServer}
+                    className="flex items-center gap-1 px-2 py-1 border border-slate-600 bg-slate-800/50 hover:bg-slate-700 text-slate-300 rounded text-[10px] font-medium transition-all"
+                 >
+                     <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                     <span>重置/刷新</span>
+                 </button>
 
-                      {/* Export Button */}
-                      <button 
-                        onClick={() => setIsExportModalOpen(true)}
-                        className={`group flex items-center gap-2 px-3 py-1.5 border rounded-lg text-xs font-medium transition-all hover:scale-105 active:scale-95 backdrop-blur-md ${showUnsavedBadge ? 'bg-yellow-500/20 border-yellow-400/50 text-yellow-100 animate-pulse' : 'bg-white/10 hover:bg-white/20 border-white/10 text-white'}`}
-                      >
-                         <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 ${showUnsavedBadge ? 'text-white' : 'text-yellow-300'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                          </svg>
-                         <span>{showUnsavedBadge ? '点击保存配置' : '生成部署配置'}</span>
-                      </button>
-                    </div>
+                 <button 
+                    onClick={() => setIsExportModalOpen(true)}
+                    className="flex items-center gap-1 px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-[10px] font-medium transition-all"
+                 >
+                     <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                     <span>生成部署配置</span>
+                 </button>
+            </div>
+        </header>
+
+        {/* 2. Main Content Area */}
+        <div className="flex flex-1 overflow-hidden">
+            {/* Left Sidebar - Width reduced to w-28 */}
+            <aside className="w-28 bg-white border-r border-gray-200 flex flex-col shrink-0 z-20">
+                <div className="flex-1 overflow-y-auto custom-scrollbar">
+                    <ul className="py-0">
+                        {items.map((item) => (
+                            <li key={item.id} className="relative group border-b border-gray-200 last:border-0">
+                                <button
+                                    onClick={() => setActiveUrl(item.url)}
+                                    className={`w-full text-left px-2 py-3 text-xs font-medium transition-all border-l-2 ${
+                                        activeUrl === item.url 
+                                        ? 'border-blue-500 bg-blue-50 text-blue-700' 
+                                        : 'border-transparent text-slate-600 hover:bg-gray-50 hover:text-slate-900'
+                                    }`}
+                                >
+                                    <div className="truncate" title={item.title}>{item.title}</div>
+                                </button>
+                                
+                                {/* Edit/Delete Actions (Hover only) - Scaled down for smaller sidebar */}
+                                <div className="absolute right-1 top-1/2 -translate-y-1/2 hidden group-hover:flex items-center gap-0.5 bg-white/90 backdrop-blur-sm rounded shadow-sm p-0.5">
+                                    <button 
+                                        onClick={(e) => { e.stopPropagation(); handleEditClick(item); }}
+                                        className="p-0.5 text-slate-400 hover:text-blue-500 rounded"
+                                        title="编辑"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                        </svg>
+                                    </button>
+                                    <button 
+                                        onClick={(e) => { e.stopPropagation(); handleDeleteItem(item.id); }}
+                                        className="p-0.5 text-slate-400 hover:text-red-500 rounded"
+                                        title="删除"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            </li>
+                        ))}
+                    </ul>
                 </div>
                 
-                <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-                    <div>
-                        <h1 className="text-2xl md:text-3xl font-bold tracking-tight leading-tight">
-                        急修到家系统升级优化
-                        </h1>
-                        <p className="text-slate-300 text-xs md:text-sm leading-relaxed max-w-4xl mt-2 opacity-80">
-                        所有系统节点已在后台完成同步。编辑内容后，请点击右上角“生成部署配置”以更新线上版本。
-                        </p>
-                    </div>
+                {/* Initialize Module Button (Fixed at bottom of sidebar) */}
+                <div className="p-2 border-t border-gray-100 bg-gray-50">
+                    <button
+                        onClick={() => {
+                            setEditingItem(null);
+                            setIsModalOpen(true);
+                        }}
+                        className="w-full flex items-center justify-center gap-1 px-2 py-1.5 bg-white border border-gray-300 text-gray-700 rounded text-xs font-medium hover:bg-blue-50 hover:border-blue-300 hover:text-blue-600 transition-all shadow-sm"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                        </svg>
+                        <span className="truncate">初始化模块</span>
+                    </button>
                 </div>
-              </div>
-           </div>
+            </aside>
+
+            {/* Right Content Area */}
+            <main className="flex-1 relative bg-slate-100 h-full w-full">
+                {activeUrl ? (
+                    <iframe 
+                        src={activeUrl} 
+                        className="absolute inset-0 w-full h-full border-none bg-white"
+                        title="Content Preview"
+                        sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-popups-to-escape-sandbox allow-presentation"
+                    />
+                ) : (
+                    <div className="flex items-center justify-center h-full text-gray-400">
+                        <p>请选择左侧导航项目</p>
+                    </div>
+                )}
+            </main>
         </div>
 
-        {/* Loading State - only show if items are empty, which is unlikely now */}
-        {isLoading && items.length === 0 && (
-           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 animate-pulse">
-              {[1,2,3,4,5].map(i => (
-                <div key={i} className="h-48 rounded-2xl bg-slate-200"></div>
-              ))}
-           </div>
-        )}
+        {/* Modals */}
+        <AddModal 
+            isOpen={isModalOpen} 
+            onClose={handleCloseModal} 
+            onSubmit={handleSaveItem}
+            initialValues={editingItem ? { title: editingItem.title, url: editingItem.url } : undefined}
+        />
 
-        {/* Grid Section */}
-        {items.length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-            {items.map((item, index) => (
-              <NavCard 
-                key={item.id} 
-                index={index}
-                item={item} 
-                onDelete={handleDeleteItem} 
-                onEdit={handleEditClick}
-                onMove={handleMoveItem}
-                onClick={setActiveUrl}
-              />
-            ))}
-            <AddCard onClick={() => {
-              setEditingItem(null);
-              setIsModalOpen(true);
-            }} />
-          </div>
-        )}
-      </main>
-
-      <div className="text-center py-8 text-xs text-slate-400">
-         SYS.VER.4.1.8 © 2025 急修到家技术部
-      </div>
-
-      <AddModal 
-        isOpen={isModalOpen} 
-        onClose={handleCloseModal} 
-        onSubmit={handleSaveItem}
-        initialValues={editingItem ? { title: editingItem.title, url: editingItem.url } : undefined}
-      />
-
-      <ExportModal
-        isOpen={isExportModalOpen}
-        onClose={() => setIsExportModalOpen(false)}
-        data={items}
-      />
+        <ExportModal
+            isOpen={isExportModalOpen}
+            onClose={() => setIsExportModalOpen(false)}
+            data={items}
+        />
     </div>
   );
 };
