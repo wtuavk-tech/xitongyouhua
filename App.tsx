@@ -8,7 +8,7 @@ import { NavItem } from './types';
 // 本地存储的 Key
 const STORAGE_KEY = 'sys_upgrade_nav_data_v1';
 
-// 用户指定的固定数据 - 共14个板块
+// 用户指定的固定数据 - 共21个板块
 const DEFAULT_DATA: NavItem[] = [
   {
     "id": "home-nav",
@@ -93,12 +93,54 @@ const DEFAULT_DATA: NavItem[] = [
     "url": "https://paidanyeji.pages.dev/",
     "title": "派单业绩",
     "timestamp": 1765938389055
+  },
+  {
+    "id": "1765939188488",
+    "url": "https://yuanshidingdan.pages.dev/",
+    "title": "原始订单页",
+    "timestamp": 1765939188488
+  },
+  {
+    "id": "1765939498767",
+    "url": "https://changqidingdan.pages.dev/",
+    "title": "长期订单页",
+    "timestamp": 1765939498767
+  },
+  {
+    "id": "1765939589456",
+    "url": "https://zhuanpaijilu.pages.dev/",
+    "title": "转派记录页",
+    "timestamp": 1765939589456
+  },
+  {
+    "id": "1765940326326",
+    "url": "https://paidanjilu.pages.dev/",
+    "title": "派单记录页",
+    "timestamp": 1765940326326
+  },
+  {
+    "id": "1765941266543",
+    "url": "https://diyuxiangmujiage.pages.dev/",
+    "title": "地域项目价格页",
+    "timestamp": 1765941266543
+  },
+  {
+    "id": "1765941721016",
+    "url": "https://haopingfanxian.pages.dev/",
+    "title": "好评返现",
+    "timestamp": 1765941721016
+  },
+  {
+    "id": "1765941888712",
+    "url": "https://ludanjiage.pages.dev/",
+    "title": "录单价格页",
+    "timestamp": 1765941888712
   }
 ];
 
 const App: React.FC = () => {
   // 1. 初始化状态：优先尝试从本地存储读取
-  // 如果没有本地缓存，直接使用 DEFAULT_DATA (代码中固定的14个板块)
+  // 如果没有本地缓存，直接使用 DEFAULT_DATA (代码中固定的21个板块)
   const [items, setItems] = useState<NavItem[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
@@ -363,7 +405,7 @@ const App: React.FC = () => {
       </main>
 
       <div className="text-center py-8 text-xs text-slate-400">
-         SYS.VER.4.1.6 © 2025 急修到家技术部
+         SYS.VER.4.1.7 © 2025 急修到家技术部
       </div>
 
       <AddModal 
