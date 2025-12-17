@@ -145,6 +145,18 @@ const DEFAULT_DATA: NavItem[] = [
     "url": "https://baojiaye.pages.dev/",
     "title": "报价页",
     "timestamp": 1765950001916
+  },
+  {
+    "id": "1765950938732",
+    "url": "https://xiangmuzhibao.pages.dev/",
+    "title": "项目质保",
+    "timestamp": 1765950938732
+  },
+  {
+    "id": "1765953857186",
+    "url": "https://dairudanku.pages.dev/",
+    "title": "待入单库",
+    "timestamp": 1765953857186
   }
 ];
 
